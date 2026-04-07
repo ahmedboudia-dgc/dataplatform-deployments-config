@@ -10,5 +10,5 @@ template:
   metadata_file: "template_batch_ingestion_sts.json"
   gcs_path: "gs://sandbox-aboudia-dataflow-staging/templates/template_batch_ingestion_sts.json"
 image:
-  tag: "feature-dataflow-templates-batch-ingestion-sts-eb7fcc0"
+  tag: "feature-dataflow-templates-batch-ingestion-sts-e85fc22ae74691d08bd63bcfc6b22ccd22a0d1b0"
 parameters: {}
