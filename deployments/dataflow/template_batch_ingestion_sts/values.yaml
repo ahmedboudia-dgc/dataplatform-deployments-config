@@ -1,0 +1,19 @@
+pipeline:
+  name: "template_batch_ingestion_sts"
+
+gcp:
+  project_id: "sandbox-aboudia"
+  region: "europe-west1"
+
+artifact_registry:
+  repository: "dataflow-templates-repository"
+  image_name: "template-batch-ingestion-sts"
+
+template:
+  metadata_file: "template_batch_ingestion_sts.json"
+  gcs_path: "gs://sandbox-aboudia-dataflow-staging/templates/template_batch_ingestion_sts.json"
+
+image:
+  tag: ""
+
+parameters: {}
