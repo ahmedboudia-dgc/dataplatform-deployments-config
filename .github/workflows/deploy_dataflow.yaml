@@ -25,6 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout dataflow repo
+        uses: actions/checkout@v4
+        with:
+          repository: ahmedboudia-dgc/dataplatform-dataflow
+          path: dataflow
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -73,5 +80,5 @@ jobs:
           gcloud dataflow flex-template build "${{ steps.cfg.outputs.template_gcs }}" \
             --image "${{ env.REGISTRY }}/${{ steps.cfg.outputs.project_id }}/${{ env.REPOSITORY }}/${{ steps.cfg.outputs.image_name }}:${{ steps.cfg.outputs.tag }}" \
             --sdk-language PYTHON \
-            --metadata-file "${{ steps.cfg.outputs.metadata }}" \
+            --metadata-file "dataflow/${{ steps.cfg.outputs.image_name }}/${{ steps.cfg.outputs.metadata }}" \
             --project "${{ steps.cfg.outputs.project_id }}"
