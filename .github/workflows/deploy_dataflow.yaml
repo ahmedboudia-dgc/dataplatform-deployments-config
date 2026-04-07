@@ -73,4 +73,5 @@ jobs:
           gcloud dataflow flex-template build "${{ steps.cfg.outputs.template_gcs }}" \
             --image "${{ env.REGISTRY }}/${{ steps.cfg.outputs.project_id }}/${{ env.REPOSITORY }}/${{ steps.cfg.outputs.image_name }}:${{ steps.cfg.outputs.tag }}" \
             --sdk-language PYTHON \
-            --metadata-file "${{ steps.cfg.outputs.metadata }}"
+            --metadata-file "${{ steps.cfg.outputs.metadata }}" \
+            --project "${{ steps.cfg.outputs.project_id }}"
