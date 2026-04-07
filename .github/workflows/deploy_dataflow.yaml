@@ -75,7 +75,7 @@ jobs:
           if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             DATAFLOW_REF="v${VERSION}"
             echo "Detected release version: $VERSION -> git ref $DATAFLOW_REF"
-          elif [[ "$VERSION" =~ ^${IMAGE_NAME}-([0-9a-f]{40})$ ]]; then
+          elif [[ "$VERSION" =~ -([0-9a-f]{40})$ ]]; then
             DATAFLOW_REF="${BASH_REMATCH[1]}"
             echo "Detected preview version: $VERSION -> commit sha $DATAFLOW_REF"
           else
