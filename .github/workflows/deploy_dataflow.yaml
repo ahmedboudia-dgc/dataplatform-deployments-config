@@ -30,7 +30,7 @@ jobs:
         with:
           repository: ahmedboudia-dgc/dataplatform-dataflow
           path: dataflow
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
