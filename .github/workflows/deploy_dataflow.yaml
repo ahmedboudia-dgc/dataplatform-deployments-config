@@ -25,13 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout dataflow repo
-        uses: actions/checkout@v4
-        with:
-          repository: ahmedboudia-dgc/dataplatform-dataflow
-          path: dataflow
-          token: ${{ secrets.GH_TOKEN }}
-
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -63,17 +56,45 @@ jobs:
         run: |
           FILE="deployments/dataflow/${{ inputs.pipeline_name }}/values.yaml"
 
-          echo "project_id=$(yq '.gcp.project_id' $FILE)" >> $GITHUB_OUTPUT
-          echo "region=$(yq '.gcp.region' $FILE)" >> $GITHUB_OUTPUT
-          echo "image_name=$(yq '.artifact_registry.image_name' $FILE)" >> $GITHUB_OUTPUT
-          echo "template_gcs=$(yq '.template.gcs_path' $FILE)" >> $GITHUB_OUTPUT
-          echo "metadata=$(yq '.template.metadata_file' $FILE)" >> $GITHUB_OUTPUT
-          echo "job_prefix=$(yq '.dataflow.job_name_prefix' $FILE)" >> $GITHUB_OUTPUT
-          echo "sa=$(yq '.dataflow.service_account' $FILE)" >> $GITHUB_OUTPUT
-          echo "temp=$(yq '.dataflow.temp_location' $FILE)" >> $GITHUB_OUTPUT
-          echo "staging=$(yq '.dataflow.staging_location' $FILE)" >> $GITHUB_OUTPUT
-          echo "subnet=$(yq '.dataflow.subnetwork' $FILE)" >> $GITHUB_OUTPUT
-          echo "tag=$(yq '.image.tag' $FILE)" >> $GITHUB_OUTPUT
+          echo "project_id=$(yq -r '.gcp.project_id' $FILE)" >> $GITHUB_OUTPUT
+          echo "region=$(yq -r '.gcp.region' $FILE)" >> $GITHUB_OUTPUT
+          echo "image_name=$(yq -r '.artifact_registry.image_name' $FILE)" >> $GITHUB_OUTPUT
+          echo "template_gcs=$(yq -r '.template.gcs_path' $FILE)" >> $GITHUB_OUTPUT
+          echo "metadata=$(yq -r '.template.metadata_file' $FILE)" >> $GITHUB_OUTPUT
+          echo "tag=$(yq -r '.image.tag' $FILE)" >> $GITHUB_OUTPUT
+
+      - name: Resolve dataflow git ref from version
+        id: ref
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.cfg.outputs.tag }}"
+          IMAGE_NAME="${{ steps.cfg.outputs.image_name }}"
+
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            DATAFLOW_REF="v${VERSION}"
+            echo "Detected release version: $VERSION -> git ref $DATAFLOW_REF"
+          elif [[ "$VERSION" =~ ^${IMAGE_NAME}-([0-9a-f]{40})$ ]]; then
+            DATAFLOW_REF="${BASH_REMATCH[1]}"
+            echo "Detected preview version: $VERSION -> commit sha $DATAFLOW_REF"
+          else
+            echo "Unsupported version format: $VERSION"
+            echo "Expected either:"
+            echo "  - release: 1.X.X"
+            echo "  - preview: ${IMAGE_NAME}-<40-char-commit-sha>"
+            exit 1
+          fi
+
+          echo "dataflow_ref=$DATAFLOW_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout dataflow repo
+        uses: actions/checkout@v4
+        with:
+          repository: ahmedboudia-dgc/dataplatform-dataflow
+          path: dataflow
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ steps.ref.outputs.dataflow_ref }}
 
       - name: Build flex template
         run: |
