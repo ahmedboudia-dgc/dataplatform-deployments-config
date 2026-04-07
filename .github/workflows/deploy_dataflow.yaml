@@ -1,0 +1,76 @@
+name: Deploy Dataflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline_name:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  REGISTRY: europe-west1-docker.pkg.dev
+  REPOSITORY: dataflow-templates-repository
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Install yq + jq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Update version in values.yaml
+        run: |
+          FILE="deployments/dataflow/${{ inputs.pipeline_name }}/values.yaml"
+          yq -i '.image.tag = "${{ inputs.version }}"' "$FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "deploy(dataflow): ${{ inputs.pipeline_name }} -> ${{ inputs.version }}" || exit 0
+          git push
+
+      - name: Read config
+        id: cfg
+        run: |
+          FILE="deployments/dataflow/${{ inputs.pipeline_name }}/values.yaml"
+
+          echo "project_id=$(yq '.gcp.project_id' $FILE)" >> $GITHUB_OUTPUT
+          echo "region=$(yq '.gcp.region' $FILE)" >> $GITHUB_OUTPUT
+          echo "image_name=$(yq '.artifact_registry.image_name' $FILE)" >> $GITHUB_OUTPUT
+          echo "template_gcs=$(yq '.template.gcs_path' $FILE)" >> $GITHUB_OUTPUT
+          echo "metadata=$(yq '.template.metadata_file' $FILE)" >> $GITHUB_OUTPUT
+          echo "job_prefix=$(yq '.dataflow.job_name_prefix' $FILE)" >> $GITHUB_OUTPUT
+          echo "sa=$(yq '.dataflow.service_account' $FILE)" >> $GITHUB_OUTPUT
+          echo "temp=$(yq '.dataflow.temp_location' $FILE)" >> $GITHUB_OUTPUT
+          echo "staging=$(yq '.dataflow.staging_location' $FILE)" >> $GITHUB_OUTPUT
+          echo "subnet=$(yq '.dataflow.subnetwork' $FILE)" >> $GITHUB_OUTPUT
+          echo "tag=$(yq '.image.tag' $FILE)" >> $GITHUB_OUTPUT
+
+      - name: Build flex template
+        run: |
+          gcloud dataflow flex-template build "${{ steps.cfg.outputs.template_gcs }}" \
+            --image "${{ env.REGISTRY }}/${{ steps.cfg.outputs.project_id }}/${{ env.REPOSITORY }}/${{ steps.cfg.outputs.image_name }}:${{ steps.cfg.outputs.tag }}" \
+            --sdk-language PYTHON \
+            --metadata-file "${{ inputs.pipeline_name }}/${{ steps.cfg.outputs.metadata }}"

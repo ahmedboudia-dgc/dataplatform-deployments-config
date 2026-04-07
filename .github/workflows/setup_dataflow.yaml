@@ -1,0 +1,85 @@
+name: Setup Dataflow Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline_name:
+        description: "Name of th dataflow template to deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_ID: ${{ vars.GOOGLE_PROJECT_ID }}
+  REGION: ${{ vars.GOOGLE_REGION }}
+  TEMPLATE_GCS_BASE: gs://sandbox-aboudia-dataflow-staging/templates
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive names
+        id: names
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PIPELINE_NAME="${{ inputs.pipeline_name }}"
+          IMAGE_NAME="${PIPELINE_NAME//_/-}"
+          METADATA_FILE="${PIPELINE_NAME}.json"
+          VALUES_DIR="deployments/dataflow/${PIPELINE_NAME}"
+          VALUES_FILE="${VALUES_DIR}/values.yaml"
+          TEMPLATE_GCS_PATH="${{ env.TEMPLATE_GCS_BASE }}/${PIPELINE_NAME}.json"
+
+          echo "pipeline_name=$PIPELINE_NAME" >> "$GITHUB_OUTPUT"
+          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "metadata_file=$METADATA_FILE" >> "$GITHUB_OUTPUT"
+          echo "values_dir=$VALUES_DIR" >> "$GITHUB_OUTPUT"
+          echo "values_file=$VALUES_FILE" >> "$GITHUB_OUTPUT"
+          echo "template_gcs_path=$TEMPLATE_GCS_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Create values.yaml
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${{ steps.names.outputs.values_dir }}"
+
+          cat > "${{ steps.names.outputs.values_file }}" <<EOF
+          pipeline:
+            name: "${{ steps.names.outputs.pipeline_name }}"
+
+          gcp:
+            project_id: "${{ env.PROJECT_ID }}"
+            region: "${{ env.REGION }}"
+
+          artifact_registry:
+            repository: "dataflow-templates-repository"
+            image_name: "${{ steps.names.outputs.image_name }}"
+
+          template:
+            metadata_file: "${{ steps.names.outputs.metadata_file }}"
+            gcs_path: "${{ steps.names.outputs.template_gcs_path }}"
+
+          image:
+            tag: ""
+
+          parameters: {}
+          EOF
+
+      - name: Commit generated config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "${{ steps.names.outputs.values_file }}"
+          git commit -m "setup(dataflow): initialize ${{ steps.names.outputs.pipeline_name }}" || exit 0
+          git push
