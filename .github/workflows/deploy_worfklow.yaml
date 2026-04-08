@@ -1,0 +1,115 @@
+name: Deploy Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_name:
+        description: "Name of the wirkflow to deploy"
+        required: true
+        type: string
+      version:
+        description: "Version to deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update version in values.yaml
+        run: |
+          FILE="deployments/workflows/${{ inputs.workflow_name }}/values.yaml"
+          yq -i '.version.tag = "${{ inputs.version }}"' "$FILE"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "deploy(workflow): ${{ inputs.workflow_name }} -> ${{ inputs.version }}" || exit 0
+          git push
+
+      - name: Read config
+        id: cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FILE="deployments/workflows/${{ inputs.workflow_name }}/values.yaml"
+
+          echo "workflow_name=$(yq -r '.workflow.name' $FILE)" >> $GITHUB_OUTPUT
+          echo "project_id=$(yq -r '.gcp.project_id' $FILE)" >> $GITHUB_OUTPUT
+          echo "location=$(yq -r '.gcp.location' $FILE)" >> $GITHUB_OUTPUT
+          echo "repository=$(yq -r '.source.repository' $FILE)" >> $GITHUB_OUTPUT
+          echo "workflow_file=$(yq -r '.source.workflow_file' $FILE)" >> $GITHUB_OUTPUT
+          echo "tag=$(yq -r '.version.tag' $FILE)" >> $GITHUB_OUTPUT
+
+      - name: Resolve workflows git ref from version
+        id: ref
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ steps.cfg.outputs.tag }}"
+
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            WORKFLOWS_REF="$VERSION"
+            echo "Detected release version: $VERSION -> git ref $WORKFLOWS_REF"
+          elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            WORKFLOWS_REF="v$VERSION"
+            echo "Detected release version: $VERSION -> git ref $WORKFLOWS_REF"
+          elif [[ "$VERSION" =~ -([0-9a-f]{40})$ ]]; then
+            WORKFLOWS_REF="${BASH_REMATCH[1]}"
+            echo "Detected preview version: $VERSION -> commit sha $WORKFLOWS_REF"
+          else
+            echo "Unsupported version format: $VERSION"
+            echo "Expected either:"
+            echo "  - release: v1.X.X or 1.X.X"
+            echo "  - preview ending with -<40-char-commit-sha>"
+            exit 1
+          fi
+
+          echo "workflows_ref=$WORKFLOWS_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout workflows repo
+        uses: actions/checkout@v4
+        with:
+          repository: ahmedboudia-dgc/dataplatform-workflows
+          path: workflows-src
+          token: ${{ secrets.GH_TOKEN }}
+          ref: ${{ steps.ref.outputs.workflows_ref }}
+
+      - name: Debug checked out files
+        run: |
+          pwd
+          find workflows-src -maxdepth 4 -type f | sort || true
+
+      - name: Check workflow file exists
+        run: |
+          test -f "workflows-src/${{ steps.cfg.outputs.workflow_file }}"
+
+      - name: Deploy workflow
+        run: |
+          gcloud workflows deploy "${{ steps.cfg.outputs.workflow_name }}" \
+            --project "${{ steps.cfg.outputs.project_id }}" \
+            --location "${{ steps.cfg.outputs.region }}" \
+            --source "workflows-src/${{ steps.cfg.outputs.workflow_file }}"
