@@ -33,7 +33,7 @@ jobs:
           WORKFLOW_DIR="${WORKFLOW_NAME//_/-}"
           VALUES_DIR="deployments/workflows/${WORKFLOW_NAME}"
           VALUES_FILE="${VALUES_DIR}/values.yaml"
-          WORKFLOW_FILE="workflow/${WORKFLOW_DIR}/${WORKFLOW_NAME}.yaml"
+          WORKFLOW_FILE="${WORKFLOW_DIR}/${WORKFLOW_NAME}.yaml"
 
           echo "workflow_name=${WORKFLOW_NAME}" >> "$GITHUB_OUTPUT"
           echo "workflow_dir=${WORKFLOW_DIR}" >> "$GITHUB_OUTPUT"
