@@ -1,15 +1,11 @@
 workflow:
   name: "batch_ingestion_sts_workflow"
-
 gcp:
   project_id: "sandbox-aboudia"
   location: "europe-west1"
-
 source:
   repository: "ahmedboudia-dgc/dataplatform-workflows"
   workflow_file: "workflow/batch-ingestion-sts-workflow/batch_ingestion_sts_workflow.yaml"
-
 version:
-  tag: ""
-
+  tag: "feature-workflow-trigger-dataflow-ingestion-batch-sts-689e97da5ac44861be9feeb8168bda8cbc9b8257"
 parameters: {}
