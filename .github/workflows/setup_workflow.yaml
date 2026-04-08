@@ -1,0 +1,79 @@
+name: Setup Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_name:
+        description: "Name of the wirkflow to deploy"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_ID: ${{ vars.GOOGLE_PROJECT_ID }}
+  REGION: ${{ vars.GOOGLE_REGION }}
+  WORKFLOWS_REPOSITORY: ahmedboudia-dgc/dataplatform-workflows
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive paths
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          WORKFLOW_NAME="${{ inputs.workflow_name }}"
+          WORKFLOW_DIR="${WORKFLOW_NAME//_/-}"
+          VALUES_DIR="deployments/workflows/${WORKFLOW_NAME}"
+          VALUES_FILE="${VALUES_DIR}/values.yaml"
+          WORKFLOW_FILE="workflow/${WORKFLOW_DIR}/${WORKFLOW_NAME}.yaml"
+
+          echo "workflow_name=${WORKFLOW_NAME}" >> "$GITHUB_OUTPUT"
+          echo "workflow_dir=${WORKFLOW_DIR}" >> "$GITHUB_OUTPUT"
+          echo "values_dir=${VALUES_DIR}" >> "$GITHUB_OUTPUT"
+          echo "values_file=${VALUES_FILE}" >> "$GITHUB_OUTPUT"
+          echo "workflow_file=${WORKFLOW_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Create values.yaml
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${{ steps.vars.outputs.values_dir }}"
+
+          cat > "${{ steps.vars.outputs.values_file }}" <<EOF
+          workflow:
+            name: "${{ steps.vars.outputs.workflow_name }}"
+
+          gcp:
+            project_id: "${{ env.PROJECT_ID }}"
+            location: "${{ env.REGION }}"
+
+          source:
+            repository: "${{ env.WORKFLOWS_REPOSITORY }}"
+            workflow_file: "${{ steps.vars.outputs.workflow_file }}"
+
+          version:
+            tag: ""
+
+          parameters: {}
+          EOF
+
+      - name: Commit config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "${{ steps.vars.outputs.values_file }}"
+          git commit -m "setup(workflow): initialize ${{ steps.vars.outputs.workflow_name }}" || exit 0
+          git push
