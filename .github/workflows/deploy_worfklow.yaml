@@ -111,5 +111,5 @@ jobs:
         run: |
           gcloud workflows deploy "${{ steps.cfg.outputs.workflow_name }}" \
             --project "${{ steps.cfg.outputs.project_id }}" \
-            --location "${{ steps.cfg.outputs.region }}" \
+            --location "${{ steps.cfg.outputs.location }}" \
             --source "workflows-src/${{ steps.cfg.outputs.workflow_file }}"
