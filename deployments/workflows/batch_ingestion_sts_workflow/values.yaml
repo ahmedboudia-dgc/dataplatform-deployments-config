@@ -7,5 +7,5 @@ source:
   repository: "ahmedboudia-dgc/dataplatform-workflows"
   workflow_file: "batch-ingestion-sts-workflow/batch_ingestion_sts_workflow.yaml"
 version:
-  tag: "feature-workflow-trigger-dataflow-ingestion-batch-sts-299eab218852fb49496c74e37054f74f0ae699aa"
+  tag: "1.2.0"
 parameters: {}
