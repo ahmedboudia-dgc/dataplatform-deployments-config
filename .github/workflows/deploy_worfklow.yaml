@@ -94,22 +94,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ahmedboudia-dgc/dataplatform-workflows
-          path: workflows-src
+          path: workflows
           token: ${{ secrets.GH_TOKEN }}
           ref: ${{ steps.ref.outputs.workflows_ref }}
 
       - name: Debug checked out files
         run: |
           pwd
-          find workflows-src -maxdepth 4 -type f | sort || true
+          find workflows -maxdepth 4 -type f | sort || true
 
       - name: Check workflow file exists
         run: |
-          test -f "workflows-src/${{ steps.cfg.outputs.workflow_file }}"
+          test -f "workflows/${{ steps.cfg.outputs.workflow_file }}"
 
       - name: Deploy workflow
         run: |
           gcloud workflows deploy "${{ steps.cfg.outputs.workflow_name }}" \
             --project "${{ steps.cfg.outputs.project_id }}" \
-            --location "${{ steps.cfg.outputs.region }}" \
-            --source "workflows-src/${{ steps.cfg.outputs.workflow_file }}"
+            --location "${{ steps.cfg.outputs.location }}" \
+            --source "workflows/${{ steps.cfg.outputs.workflow_file }}"
